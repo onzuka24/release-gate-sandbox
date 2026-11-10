@@ -1,0 +1,118 @@
+# 段階 1: ソフトウェアのリリース(版は 1 つ)。process_b 相当。
+# 意味(ガード・効果・性質)は domain/release.py。ここには「どの状態から・誰が・どの条件で・何が変わるか」だけを書く。
+#
+# fair = true      できる状態が続けば、いつかは行われる(弱公平性)
+# fair = "strong"  できる状態に何度もなるなら、いつかは行われる(強公平性)
+# 環境の操作(actor = "env")と、行われなくてもよい操作は fair にしない。
+
+name = "Stage1"
+domain = "release"
+initial = "tagged"
+terminal = ["published", "rejected", "revoked"]
+states = ["tagged", "built", "reviewed", "approved", "signed", "published", "rejected", "revoked"]
+
+[[actions]]
+name = "build"              # ビルド A(CI)が成果物を作り、ハッシュを記録する
+from = ["tagged"]
+to = "built"
+actor = "ci"
+effects = ["record_build"]
+fair = true
+
+[[actions]]
+name = "rebuild"            # ビルド B(独立の再現ビルド)が、置かれている成果物と比べる
+from = ["built"]
+to = "="
+actor = "rebuilder"
+guards = ["not_yet_rebuilt"]
+effects = ["compare_build"]
+fair = true
+
+[[actions]]
+name = "tamper"             # 攻撃者が公開の前に成果物をすり替える(環境の操作)
+from = ["built", "reviewed", "approved", "signed"]
+to = "="
+actor = "env"
+guards = ["art_intact"]
+effects = ["swap_artifact"]
+
+[[actions]]
+name = "review"             # 変更のレビュー(作成者以外)。再現ビルドが一致していること
+from = ["built"]
+to = "reviewed"
+actor = "reviewer"
+guards = ["not_author", "repro_match"]
+effects = ["mark_reviewed"]
+fair = true
+
+[[actions]]
+name = "approve_sign"       # 署名の承認(作成者以外の鍵の保有者。1 人 1 回)
+from = ["reviewed", "approved"]
+to = "approved"
+actor = "keyholder"
+guards = ["not_author", "not_yet_approved_by_me"]
+effects = ["add_approval"]
+fair = true
+
+[[actions]]
+name = "sign"               # 署名(作成者以外、承認 2 件、署名の儀式の時間内、置かれている成果物が記録と同じ)
+from = ["approved"]
+to = "signed"
+actor = "keyholder"
+# not_author は SMT の検査で抜けが見つかって足した(作り直しの途中の発見。process_b の定義にも無い)
+guards = ["not_author", "two_approvals", "in_ceremony", "art_intact"]
+effects = ["sign_artifact"]
+fair = true
+
+[[actions]]
+name = "emergency_sign"     # 緊急の署名(緊急の印があるとき、作成者以外の鍵の保有者 1 人で)。事後監査が要る
+from = ["built"]
+to = "signed"
+actor = "keyholder"
+guards = ["emergency_label", "not_author", "in_ceremony", "art_intact"]
+effects = ["sign_artifact", "mark_fast"]
+
+[[actions]]
+name = "publish"            # 公開(署名と成果物がビルド A の記録と一致し、検査済みか緊急の道を通ったもの)
+from = ["signed"]
+to = "published"
+actor = "release_manager"
+guards = ["sig_matches_build", "checked_or_fast"]
+fair = true
+
+[[actions]]
+name = "reject"             # 却下(すり替えか、再現ビルドの不一致が見つかったとき)
+from = ["built", "reviewed", "approved", "signed"]
+to = "rejected"
+actor = "release_manager"
+guards = ["integrity_broken"]
+fair = true
+
+[[actions]]
+name = "post_audit"         # 緊急の署名の事後監査
+from = ["published", "rejected", "revoked"]
+to = "="
+actor = "security"
+guards = ["audit_pending"]
+effects = ["done_audit"]
+fair = true
+
+[[actions]]
+name = "find_vuln"          # 公開後に脆弱性が見つかる(環境の操作)
+from = ["published"]
+to = "="
+actor = "env"
+guards = ["no_vuln_yet"]
+effects = ["raise_vuln"]
+
+[[actions]]
+name = "revoke"             # 失効
+from = ["published"]
+to = "revoked"
+actor = "security"
+guards = ["vuln_found"]
+fair = "strong"
+
+[properties]
+invariants = ["PublishedIsAuthentic", "SignedIsAuthentic", "PublishedIsChecked", "TwoPersonSigning", "NoSelfApproval"]
+liveness = ["EventuallyDone", "FastPathAudited", "VulnRevoked"]

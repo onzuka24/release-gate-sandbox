@@ -1,0 +1,19 @@
+# フローの利用者と役割(段階 1 の試験環境と同じ)。鍵は allowed_signers に、利用者の名前で並べる。
+[roles]
+rel-a = ["reviewer", "keyholder"]                # 作成者になる人(レビューと鍵の保有者も兼ねる)
+rel-r1 = ["reviewer"]
+rel-k1 = ["keyholder"]
+rel-k2 = ["keyholder"]
+rel-rm = ["release_manager"]
+rel-agent = ["agent", "reviewer", "keyholder"]   # AI エージェント。鍵の保有者とレビュアーにも入れてある
+gate-ci = ["ci"]
+gate-rb = ["rebuilder"]
+
+# Actions のジョブが担う役割
+[services]
+ci = "gate-ci"
+rebuilder = "gate-rb"
+
+# 公開を頼んだ GitHub の利用者 → フローの利用者
+[github]
+onzuka24 = "rel-rm"

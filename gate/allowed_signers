@@ -1,0 +1,5 @@
+rel-a namespaces="review,approve_sign,sign,emergency_sign" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPyD3scuCYlfoNQoBR1QE7PLBS7y074cC2v2tGPPPHtg
+rel-r1 namespaces="review,approve_sign,sign,emergency_sign" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINuhLQILYofDv6fp0hXnMCa5BtVNhQ5iPvkG90dK2kbo
+rel-k1 namespaces="review,approve_sign,sign,emergency_sign" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDNMH5/OeNW/pv1s/ibH1JYouPRCets94e0gHH7cr5xA
+rel-k2 namespaces="review,approve_sign,sign,emergency_sign" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPm5ebP/Yc/Jer/b6PHecyfq9Rk2TQAGkHFgaCeLiPwV
+rel-agent namespaces="review,approve_sign,sign,emergency_sign" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzctZqA3BWAAkF2cZY5ce1Mfoi/gn9alo/E7w/6nAsP

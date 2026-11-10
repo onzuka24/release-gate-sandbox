@@ -1,0 +1,77 @@
+# 公開の唯一の道。ビルド A とビルド B を別のジョブで行い、ゲートが証拠を検証してから、
+# environment「release」(必須のレビュアーの承認)の中でだけタグを作って公開する。
+# v* のタグはルールセットで作れない。例外は deploy key だけで、その秘密鍵は environment「release」の secret にだけある。
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "公開する版(例: v0.1.0)"
+        required: true
+permissions:
+  contents: read
+env:
+  VER: ${{ inputs.version }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      hash: ${{ steps.b.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: b
+        run: |
+          [[ "$VER" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "版の書式が違う"; exit 1; }
+          mkdir dist
+          echo "hash=$(python3 app/build.py app "dist/wareki-$VER.pyz")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+  rebuild:
+    runs-on: ubuntu-latest
+    outputs:
+      hash: ${{ steps.b.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: b
+        run: echo "hash=$(python3 app/build.py app /tmp/rebuild.pyz)" >> "$GITHUB_OUTPUT"
+  gate:
+    needs: [build, rebuild]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install cedarpy==4.12.2 z3-solver==5.3.3.0
+      - run: python gate/gh_gate.py "$VER" --art "dist/wareki-$VER.pyz" --rebuild-hash "$REBUILD" --actor "$ACTOR"
+        env:
+          REBUILD: ${{ needs.rebuild.outputs.hash }}
+          ACTOR: ${{ github.actor }}
+  publish:
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: |
+          git tag "$VER"
+          git push origin "$VER"
+          gh release create "$VER" "dist/wareki-$VER.pyz" "releases/$VER/"*.sig "releases/$VER/"*.msg \
+            --verify-tag --title "wareki $VER" --notes "ゲートを通った公開"
+        env:
+          GH_TOKEN: ${{ github.token }}
