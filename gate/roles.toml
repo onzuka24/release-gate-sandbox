@@ -17,4 +17,3 @@ rebuilder = "gate-rb"
 # 公開を頼んだ GitHub の利用者 → フローの利用者
 [github]
 onzuka24 = "rel-rm"
-"rfv-agent-onzuka24[bot]" = "rel-rm"
